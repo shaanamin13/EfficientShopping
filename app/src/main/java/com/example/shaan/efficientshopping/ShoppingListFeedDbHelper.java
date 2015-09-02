@@ -77,7 +77,7 @@ public class ShoppingListFeedDbHelper extends SQLiteOpenHelper {
 
         //hp = new HashMap();
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor res =  db.rawQuery( "select * from contacts", null );
+        Cursor res =  db.rawQuery( "select * from stores", null );
         res.moveToFirst();
 
         while(res.isAfterLast() == false){
