@@ -1,27 +1,34 @@
 package com.example.shaan.efficientshopping;
 
 import android.app.Activity;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.app.ActionBar;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.content.Context;
-import android.os.Build;
+import android.app.FragmentTransaction;
+import android.content.Intent;
 import android.os.Bundle;
+import android.provider.ContactsContract;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.support.v4.widget.DrawerLayout;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
+
+import com.getbase.floatingactionbutton.FloatingActionButton;
+import com.loopj.android.http.JsonHttpResponseHandler;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.List;
+
+import cz.msebera.android.httpclient.Header;
 
 public class HomeActivity extends AppCompatActivity
         implements NavigationDrawerFragment.NavigationDrawerCallbacks {
@@ -39,12 +46,13 @@ public class HomeActivity extends AppCompatActivity
      * Used to store the last screen title. For use in {@link #restoreActionBar()}.
      */
     private CharSequence mTitle;
-    ShoppingListFeedDbHelper mydb;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+
 
         mNavigationDrawerFragment = (NavigationDrawerFragment)
                 getSupportFragmentManager().findFragmentById(R.id.navigation_drawer);
@@ -56,10 +64,18 @@ public class HomeActivity extends AppCompatActivity
                 (DrawerLayout) findViewById(R.id.drawer_layout));
 
 
-        mydb = new ShoppingListFeedDbHelper(this);
-        ArrayList stores = mydb.getAllStoreLists();
-        ArrayAdapter arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_expandable_list_item_1, stores);
+    }
 
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
 
     }
 
@@ -118,7 +134,11 @@ public class HomeActivity extends AppCompatActivity
         if (id == R.id.action_settings) {
             return true;
         }
-
+        if (id == R.id.action_refresh) {
+            Intent refresh = new Intent(this, HomeActivity.class);
+            startActivity(refresh);
+            return true;
+        }
         return super.onOptionsItemSelected(item);
     }
 
@@ -131,7 +151,8 @@ public class HomeActivity extends AppCompatActivity
          * fragment.
          */
         private static final String ARG_SECTION_NUMBER = "section_number";
-
+        List<Store> result = new ArrayList<Store>();
+        StoreAdapter adapter = new StoreAdapter(result);
         /**
          * Returns a new instance of this fragment for the given section
          * number.
@@ -141,6 +162,7 @@ public class HomeActivity extends AppCompatActivity
             Bundle args = new Bundle();
             args.putInt(ARG_SECTION_NUMBER, sectionNumber);
             fragment.setArguments(args);
+
             return fragment;
         }
 
@@ -150,16 +172,91 @@ public class HomeActivity extends AppCompatActivity
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
+
             View rootView = inflater.inflate(R.layout.fragment_home, container, false);
+            final FragmentActivity c = getActivity();
+            final RecyclerView rv = (RecyclerView) rootView.findViewById(R.id.cardList);
+            getAllStores();
+            LinearLayoutManager llm = new LinearLayoutManager(c);
+            llm.setOrientation(LinearLayoutManager.VERTICAL);
+            rv.setLayoutManager(llm);
+
+            FloatingActionButton fb = (FloatingActionButton) rootView.findViewById(R.id.pink_icon);
+
+            fb.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(getActivity(), AddStore.class);
+                    getActivity().startActivity(intent);
+                }
+            });
+
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+
+
+                    c.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                Thread.sleep(2000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            System.out.println(adapter.getItemCount());
+                            rv.setAdapter(adapter);
+
+                        }
+                    });
+                    adapter.notifyDataSetChanged();
+                }
+            }).start();
+
             return rootView;
         }
 
         @Override
         public void onAttach(Activity activity) {
             super.onAttach(activity);
+
             ((HomeActivity) activity).onSectionAttached(
                     getArguments().getInt(ARG_SECTION_NUMBER));
         }
+
+
+        private void getAllStores() {
+
+
+            ShoppingRestClient.get("stores", null, new JsonHttpResponseHandler() {
+                @Override
+                public void onSuccess(int statusCode, Header[] headers, JSONArray response) {
+                    try {
+                        result = new ArrayList<Store>();
+                        for (int i = 0; i < response.length(); i++) {
+                            Store temp = new Store();
+                            JSONObject obj = response.getJSONObject(i);
+                            temp.setStoreId(obj.getInt("StoreID"));
+                            temp.setName(obj.getString("Name"));
+                            temp.setLocation(obj.getString("Location"));
+
+                            result.add(temp);
+                            System.out.println(result.get(i).getName());
+
+                        }
+
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    adapter.notifyDataSetChanged();
+                }
+            });
+
+        }
     }
 
+
 }
+
